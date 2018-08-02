@@ -1,32 +1,42 @@
 language: node_js
 sudo: false
 node_js:
-- '6'
-
-env:
-- NPM_CONFIG_LOGLEVEL='warn'
+- 'lts/*'
 
 jobs:
   include:
   - stage: check
+    name: next lib linting
+    if: branch = next
+    script:
+    - yarn lint
+
+  - stage: check
+    name: current lib linting
+    if: branch = master
     script:
     - npm run lint
-  - stage: build library
+
+  - stage: build
+    name: next lib and demo
+    if: branch = next
+    script:
+    - yarn build --prod
+    cache:
+      directories:
+      - dist
+
+  - stage: build
+    name: current lib and demo
+    if: branch = master
     before_script:
     - rm -rf lib
     script:
     - npm pack
     - mkdir -p lib
     - cp *.tgz lib/
-    cache:
-      directories:
-      - lib
-  - stage: build demo
-    before_install:
     - cd example
-    install:
     - npm i
-    script:
     - npm un -S ngx-openlayers
     - cp -r ../lib .
     - npm i -S lib/*.tgz
@@ -34,31 +44,66 @@ jobs:
     cache:
       directories:
       - lib
-  - stage: deploy library release
+
+  - stage: release
+    name: next lib version on github releases
+    if: branch = next
     script: ignore
     deploy:
-      - provider: releases
-        api_key: $GITHUB_OAUTH_TOKEN
-        file_glob: true
-        file: lib/*
-        skip_cleanup: true
-        on:
-          tags: true
-  - stage: deploy demo pages
-    script: ignore
-    deploy:
-      - provider: pages
-        local_dir: dist
-        skip_cleanup: true
-        github_token: $GITHUB_OAUTH_TOKEN
-        on:
-          tags: true
-  - stage: publish library release
-    deploy:
-      provider: npm
-      email: $NPM_EMAIL
-      api_key: $NPM_TOKEN
+    - provider: releases
+      api_key: $GITHUB_OAUTH_TOKEN
+      file_glob: true
+      file: dist/ngx-openlayers/*
+      skip_cleanup: true
       on:
         tags: true
-      skip_cleanup: true
 
+  - stage: release
+    name: current lib version on github releases
+    if: branch = master
+    script: ignore
+    deploy:
+    - provider: releases
+      api_key: $GITHUB_OAUTH_TOKEN
+      file_glob: true
+      file: lib/*
+      skip_cleanup: true
+      on:
+        tags: true
+
+  - stage: release
+    name: next demo on github pages
+    if: branch = next
+    script: ignore
+    deploy:
+    - provider: pages
+      local_dir: dist/demo-ngx-openlayers
+      skip_cleanup: true
+      github_token: $GITHUB_OAUTH_TOKEN
+      on:
+      tags: true
+
+  - stage: deploy
+    name: current lib version on npm
+    if: branch = master
+    script: ignore
+    deploy:
+    - provider: npm
+      email: $NPM_EMAIL
+      api_key: $NPM_TOKEN
+      skip_cleanup: true
+      on:
+      tags: true
+
+  - stage: deploy
+    name: next lib version on npm
+    if: branch = next
+    script: ignore
+    deploy:
+    - provider: npm
+      email: $NPM_EMAIL
+      api_key: $NPM_TOKEN
+      tag: next
+      skip_cleanup: true
+      on:
+      tags: true
